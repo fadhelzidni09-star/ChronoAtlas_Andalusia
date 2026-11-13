@@ -1441,10 +1441,15 @@
       document.getElementById('city-photo-caption').innerText = data.photoCaption || (data.name + ' - ' + data.monument.split(',')[0]);
       const candidates = data.image
         ? [data.image]
-        : ['jpg', 'jpeg', 'png', 'webp', 'JPG', 'JPEG', 'PNG'].map(e => 'images/' + cityKey + '.' + e);
+        : [cityKey, cityKey.charAt(0).toUpperCase() + cityKey.slice(1)]
+            .flatMap(n => ['jpg', 'jpeg', 'png', 'webp', 'JPG', 'JPEG', 'PNG'].map(e => 'images/' + n + '.' + e));
       let ci = 0;
       const tryNextPhoto = () => {
-        if (ci >= candidates.length) { photoWrap.classList.add('hidden'); return; }
+        if (ci >= candidates.length) {
+          photoWrap.classList.add('hidden');
+          if (/[?&]debug/.test(location.search)) alert('Foto tidak ditemukan. Nama file yang dicari, mis.: ' + candidates[0] + ' atau ' + candidates[4]);
+          return;
+        }
         photo.src = candidates[ci++];
       };
       photo.onload = () => photoWrap.classList.remove('hidden');
