@@ -1433,15 +1433,23 @@
       document.getElementById('city-monument').innerText = data.monument;
       document.getElementById('city-question').innerText = data.question;
 
-      // Foto kota: taruh file di public/images/<kunci>.jpg (mis. images/cordoba.jpg)
+      // Foto kota: taruh file di public/images/<kunci>.(jpg|jpeg|png|webp), mis. images/cordoba.jpeg
       const photoWrap = document.getElementById('city-photo-wrap');
       const photo = document.getElementById('city-photo');
       photoWrap.classList.add('hidden');
-      photo.onload = () => photoWrap.classList.remove('hidden');
-      photo.onerror = () => photoWrap.classList.add('hidden');
       photo.alt = data.name;
       document.getElementById('city-photo-caption').innerText = data.photoCaption || (data.name + ' - ' + data.monument.split(',')[0]);
-      photo.src = data.image || ('images/' + cityKey + '.jpg');
+      const candidates = data.image
+        ? [data.image]
+        : ['jpg', 'jpeg', 'png', 'webp', 'JPG', 'JPEG', 'PNG'].map(e => 'images/' + cityKey + '.' + e);
+      let ci = 0;
+      const tryNextPhoto = () => {
+        if (ci >= candidates.length) { photoWrap.classList.add('hidden'); return; }
+        photo.src = candidates[ci++];
+      };
+      photo.onload = () => photoWrap.classList.remove('hidden');
+      photo.onerror = tryNextPhoto;
+      tryNextPhoto();
 
       // Update Explored Button State
       const btn = document.getElementById('btn-mark-explored');
