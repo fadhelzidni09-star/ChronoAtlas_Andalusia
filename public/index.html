@@ -714,6 +714,9 @@
                   </div>
                 </div>
 
+                <!-- Materi Lanjutan (diisi dari field "materi" di CITIES_DATA) -->
+                <div id="city-materi" class="flex-col gap-2 pt-1" style="display:none"></div>
+
                 <!-- Action Button in Card -->
                 <div class="pt-3 border-t border-outline-variant/30 mt-2">
                   <button onclick="markCityExplored()" id="btn-mark-explored" class="w-full py-2.5 rounded-xl bg-primary-container text-on-primary text-xs font-bold hover:bg-primary transition flex items-center justify-center gap-1.5 shadow-xs">
@@ -1259,7 +1262,18 @@
         desc: 'Pusat peradaban dan permata dunia abad ke-10. Memiliki jalan beraspal dengan penerangan malam pertama di Eropa, Universitas Córdoba ternama, serta 70 perpustakaan publik.',
         figures: 'Abdurrahman I (Ad-Dakhil), Abdurrahman III (An-Nashir), Al-Hakam II, Ibnu Rusyd (Averroes)',
         monument: 'Mezquita de Córdoba (Masjid Agung), Jembatan Romawi (Puente Romano)',
-        question: 'Bagaimana peran Khalifah Al-Hakam II dalam memajukan literasi hingga mengumpulkan 400.000 naskah di Córdoba?'
+        question: 'Bagaimana peran Khalifah Al-Hakam II dalam memajukan literasi hingga mengumpulkan 400.000 naskah di Córdoba?',
+        materi: [
+          {
+            judul: 'Masa Kejayaan Kekhalifahan',
+            isi: 'Pada tahun 929 M, Abdurrahman III memproklamasikan diri sebagai khalifah dan menjadikan Córdoba pusat politik, budaya, dan ilmu pengetahuan di Eropa Barat.\nPara pelajar dari berbagai negeri datang untuk menuntut ilmu di kota ini.'
+          },
+          {
+            judul: 'Perpustakaan Al-Hakam II',
+            isi: 'Khalifah Al-Hakam II dikenal sangat mencintai ilmu dan mengumpulkan sekitar 400.000 jilid buku.',
+            poin: ['Mengirim utusan untuk mencari naskah ke berbagai negeri', 'Mempekerjakan penyalin dan penjilid buku']
+          }
+        ]
       },
       'granada': {
         name: 'Granada',
@@ -1432,6 +1446,42 @@
       document.getElementById('city-figures').innerText = data.figures;
       document.getElementById('city-monument').innerText = data.monument;
       document.getElementById('city-question').innerText = data.question;
+
+      // Materi lanjutan: data.materi = [{ judul: '...', isi: '...', poin: ['...', '...'] }, ...]
+      const materiBox = document.getElementById('city-materi');
+      materiBox.innerHTML = '';
+      const sections = Array.isArray(data.materi) ? data.materi : [];
+      materiBox.style.display = sections.length ? 'flex' : 'none';
+      if (sections.length) {
+        const label = document.createElement('div');
+        label.className = 'text-[10px] font-bold tracking-widest text-on-surface-variant uppercase';
+        label.textContent = 'Materi Lanjutan';
+        materiBox.appendChild(label);
+      }
+      sections.forEach((m, idx) => {
+        const d = document.createElement('details');
+        d.className = 'rounded-xl border border-outline-variant/30 bg-surface/80 overflow-hidden';
+        if (idx === 0) d.open = true;
+        const sm = document.createElement('summary');
+        sm.className = 'cursor-pointer px-3 py-2 text-xs font-bold text-on-surface';
+        sm.textContent = m.judul || 'Materi';
+        d.appendChild(sm);
+        const body = document.createElement('div');
+        body.className = 'px-3 pb-3 text-xs text-on-surface-variant leading-relaxed flex flex-col gap-2';
+        String(m.isi || '').split('\n').filter(Boolean).forEach(t => {
+          const pEl = document.createElement('p');
+          pEl.textContent = t;
+          body.appendChild(pEl);
+        });
+        if (Array.isArray(m.poin) && m.poin.length) {
+          const ul = document.createElement('ul');
+          ul.className = 'list-disc pl-4 flex flex-col gap-1';
+          m.poin.forEach(t => { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
+          body.appendChild(ul);
+        }
+        d.appendChild(body);
+        materiBox.appendChild(d);
+      });
 
       // Foto kota: taruh file di public/images/<kunci>.(jpg|jpeg|png|webp), mis. images/cordoba.jpeg
       const photoWrap = document.getElementById('city-photo-wrap');
@@ -1824,7 +1874,7 @@ Paraf Guru / Nilai:
     // 9. PETA KUSTOM + POSISI MARKER
     // ==========================================
     // Setelah memakai mode edit (?edit), tempel hasil "Salin posisi" menggantikan baris di bawah ini.
-    const MARKER_POS = {"gibraltar":{"x":432,"y":588},"algeciras":{"x":395,"y":606},"guadalete":{"x":369,"y":547},"ronda":{"x":437,"y":510},"cordoba":{"x":405,"y":388},"madinat-zahra":{"x":270,"y":250},"sevilla":{"x":296,"y":509},"granada":{"x":502,"y":459},"toledo":{"x":410,"y":306},"zaragoza":{"x":593,"y":162},"valencia":{"x":596,"y":334},"merida":{"x":274,"y":407}};
+    const MARKER_POS = {};
     const CUSTOM_MAP_FILES = ['images/peta.jpg', 'images/peta.png', 'images/peta.webp', 'images/peta.jpeg'];
     const ROUTE_ORDER = {
       thariq: ['gibraltar', 'guadalete', 'cordoba', 'toledo'],
