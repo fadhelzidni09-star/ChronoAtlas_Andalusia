@@ -467,6 +467,10 @@
             <div class="w-full aspect-[4/3] relative flex items-center justify-center">
               <svg id="andalusia-svg" viewBox="0 0 900 650" class="w-full h-full select-none" xmlns="http://www.w3.org/2000/svg">
                 
+                <!-- Peta kustom (otomatis tampil bila ada public/images/peta.jpg / .png / .webp) -->
+                <image id="map-custom" x="0" y="0" width="900" height="650" preserveAspectRatio="xMidYMid meet" style="display:none"/>
+
+                <g id="map-drawn">
                 <!-- Background Ocean / Sea -->
                 <rect width="900" height="650" fill="#d2eedf" opacity="0.35" rx="16"/>
                 
@@ -529,6 +533,7 @@
 
                 <!-- Strait of Gibraltar Tag -->
                 <text x="375" y="605" font-size="11" fill="#8a1d09" font-weight="bold" letter-spacing="1">SELAT GIBRALTAR (711 M)</text>
+                </g>
 
                 <!-- ================= ROUTE LAYERS ================= -->
                 <!-- Route 1: Thariq bin Ziyad (711 M) -->
@@ -674,6 +679,11 @@
                     <span class="ms text-[18px]">close</span>
                   </button>
                 </div>
+
+                <figure id="city-photo-wrap" class="hidden rounded-xl overflow-hidden border border-outline-variant/30 bg-surface/80">
+                  <img id="city-photo" alt="" loading="lazy" class="w-full h-44 object-cover" />
+                  <figcaption id="city-photo-caption" class="px-3 py-1.5 text-[11px] text-on-surface-variant italic"></figcaption>
+                </figure>
 
                 <div class="p-3 rounded-xl bg-surface/80 border border-outline-variant/30 text-xs text-on-surface-variant leading-relaxed" id="city-desc">
                   Ibu kota keemasan Al-Andalus. Pusat penerjemahan naskah kuno, arsitektur Mezquita de Córdoba dengan 856 pilar, serta kota berlampu jalan pertama di Eropa.
@@ -1423,6 +1433,16 @@
       document.getElementById('city-monument').innerText = data.monument;
       document.getElementById('city-question').innerText = data.question;
 
+      // Foto kota: taruh file di public/images/<kunci>.jpg (mis. images/cordoba.jpg)
+      const photoWrap = document.getElementById('city-photo-wrap');
+      const photo = document.getElementById('city-photo');
+      photoWrap.classList.add('hidden');
+      photo.onload = () => photoWrap.classList.remove('hidden');
+      photo.onerror = () => photoWrap.classList.add('hidden');
+      photo.alt = data.name;
+      document.getElementById('city-photo-caption').innerText = data.photoCaption || (data.name + ' - ' + data.monument.split(',')[0]);
+      photo.src = data.image || ('images/' + cityKey + '.jpg');
+
       // Update Explored Button State
       const btn = document.getElementById('btn-mark-explored');
       if (exploredSet.has(cityKey)) {
@@ -1787,12 +1807,120 @@ Paraf Guru / Nilai:
       } catch (e) {}
     }
 
+    // ==========================================
+    // 9. PETA KUSTOM + POSISI MARKER
+    // ==========================================
+    // Setelah memakai mode edit (?edit), tempel hasil "Salin posisi" menggantikan baris di bawah ini.
+    const MARKER_POS = {};
+    const CUSTOM_MAP_FILES = ['images/peta.jpg', 'images/peta.png', 'images/peta.webp', 'images/peta.jpeg'];
+    const ROUTE_ORDER = {
+      thariq: ['gibraltar', 'guadalete', 'cordoba', 'toledo'],
+      musa: ['algeciras', 'sevilla', 'merida', 'zaragoza']
+    };
+    const MARKERS = {};
+
+    function initMarkers() {
+      document.querySelectorAll('#andalusia-svg .city-marker').forEach(g => {
+        const key = g.getAttribute('data-key');
+        const els = [];
+        g.querySelectorAll('circle,rect,text').forEach(el => {
+          const isC = el.tagName.toLowerCase() === 'circle';
+          const ax = isC ? 'cx' : 'x', ay = isC ? 'cy' : 'y';
+          els.push({ el, ax, ay, x: parseFloat(el.getAttribute(ax)), y: parseFloat(el.getAttribute(ay)) });
+        });
+        const c = g.querySelector('circle');
+        const base = { x: parseFloat(c.getAttribute('cx')), y: parseFloat(c.getAttribute('cy')) };
+        MARKERS[key] = { g, els, base, pos: { x: base.x, y: base.y } };
+      });
+      Object.entries(MARKER_POS).forEach(([k, p]) => moveMarker(k, p.x, p.y));
+    }
+
+    function moveMarker(key, x, y) {
+      const m = MARKERS[key];
+      if (!m) return;
+      const dx = x - m.base.x, dy = y - m.base.y;
+      m.els.forEach(o => {
+        o.el.setAttribute(o.ax, o.x + dx);
+        o.el.setAttribute(o.ay, o.y + dy);
+      });
+      m.pos = { x, y };
+    }
+
+    // Rute dibuat ulang dari posisi marker, jadi otomatis mengikuti petamu
+    function rebuildRoutes() {
+      [['thariq', 'route-thariq-layer'], ['musa', 'route-musa-layer']].forEach(([k, id]) => {
+        const layer = document.getElementById(id);
+        const path = layer && layer.querySelector('path');
+        if (!path) return;
+        const pts = ROUTE_ORDER[k].filter(n => MARKERS[n]).map(n => MARKERS[n].pos);
+        path.setAttribute('d', 'M ' + pts.map(p => p.x + ',' + p.y).join(' L '));
+        layer.querySelectorAll('circle').forEach(c => c.style.display = 'none');
+      });
+    }
+
+    function loadCustomMap(i = 0) {
+      if (i >= CUSTOM_MAP_FILES.length) return;
+      const img = new Image();
+      img.onload = () => {
+        const el = document.getElementById('map-custom');
+        el.setAttribute('href', CUSTOM_MAP_FILES[i]);
+        el.style.display = '';
+        document.getElementById('map-drawn').style.display = 'none';
+        rebuildRoutes();
+      };
+      img.onerror = () => loadCustomMap(i + 1);
+      img.src = CUSTOM_MAP_FILES[i];
+    }
+
+    // Mode edit: buka situs dengan  /?edit  lalu geser titik kota ke lokasi yang benar di petamu
+    function initEditMode() {
+      if (!/[?&]edit(=|&|$)/.test(location.search)) return;
+      const svg = document.getElementById('andalusia-svg');
+      const bar = document.createElement('div');
+      bar.style.cssText = 'position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:100;background:#0f5238;color:#fff;padding:10px 14px;border-radius:12px;font:12px system-ui;display:flex;gap:10px;align-items:center;box-shadow:0 4px 16px rgba(0,0,0,.35)';
+      bar.innerHTML = '<span>Mode edit: geser titik kota ke lokasinya di peta</span><button id="edit-copy" style="background:#fed255;color:#3e2e00;border:0;border-radius:8px;padding:6px 10px;font-weight:700;cursor:pointer">Salin posisi</button>';
+      document.body.appendChild(bar);
+
+      let drag = null, moved = false;
+      const toSvg = e => {
+        const p = svg.createSVGPoint();
+        p.x = e.clientX; p.y = e.clientY;
+        return p.matrixTransform(svg.getScreenCTM().inverse());
+      };
+      Object.entries(MARKERS).forEach(([key, m]) => {
+        m.g.style.cursor = 'grab';
+        m.g.style.touchAction = 'none';
+        m.g.addEventListener('pointerdown', e => { drag = key; moved = false; m.g.setPointerCapture(e.pointerId); e.preventDefault(); });
+        m.g.addEventListener('pointermove', e => {
+          if (drag !== key) return;
+          const p = toSvg(e);
+          moved = true;
+          moveMarker(key, Math.round(p.x), Math.round(p.y));
+          rebuildRoutes();
+        });
+        m.g.addEventListener('pointerup', () => { drag = null; });
+      });
+      svg.addEventListener('click', e => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+
+      document.getElementById('edit-copy').onclick = () => {
+        const out = {};
+        Object.entries(MARKERS).forEach(([k, m]) => { out[k] = { x: m.pos.x, y: m.pos.y }; });
+        const txt = 'const MARKER_POS = ' + JSON.stringify(out) + ';';
+        (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject())
+          .then(() => alert('Posisi tersalin! Tempel menggantikan baris "const MARKER_POS = {};" di index.html'))
+          .catch(() => prompt('Salin teks ini:', txt));
+      };
+    }
+
     window.addEventListener('hashchange', handleRoute);
     window.addEventListener('DOMContentLoaded', () => {
       handleRoute();
       calculateRubricScore();
       updateOverallProgress();
       loadProgressFromServer();
+      initMarkers();
+      loadCustomMap();
+      initEditMode();
     });
   </script>
 </body>
